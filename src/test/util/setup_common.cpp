@@ -72,7 +72,7 @@ using node::LoadChainstate;
 using node::RegenerateCommitments;
 using node::VerifyLoadedChainstate;
 
-const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
+const TranslateFn G_TRANSLATION_FUN{nullptr};
 
 constexpr inline auto TEST_DIR_PATH_ELEMENT{"test_common bitcoin"}; // Includes a space to catch possible path escape issues.
 /** Random context to get unique temp data dirs. Separate from m_rng, which can be seeded from a const env var */
@@ -108,6 +108,9 @@ static void ExitFailure(std::string_view str_err)
 BasicTestingSetup::BasicTestingSetup(const ChainType chainType, TestOpts opts)
     : m_args{}
 {
+    if constexpr (!G_FUZZING) {
+        SeedRandomForTest(SeedRand::FIXED_SEED);
+    }
     m_node.shutdown_signal = &m_interrupt;
     m_node.shutdown_request = [this]{ return m_interrupt(); };
     m_node.args = &gArgs;
@@ -138,8 +141,6 @@ BasicTestingSetup::BasicTestingSetup(const ChainType chainType, TestOpts opts)
             throw std::runtime_error{error};
         }
     }
-
-    SeedRandomForTest(SeedRand::FIXED_SEED);
 
     const std::string test_name{G_TEST_GET_FULL_NAME ? G_TEST_GET_FULL_NAME() : ""};
     if (!m_node.args->IsArgSet("-testdatadir")) {
@@ -198,7 +199,9 @@ BasicTestingSetup::~BasicTestingSetup()
 {
     m_node.ecc_context.reset();
     m_node.kernel.reset();
-    SetMockTime(0s); // Reset mocktime for following tests
+    if constexpr (!G_FUZZING) {
+        SetMockTime(0s); // Reset mocktime for following tests
+    }
     LogInstance().DisconnectTestLogger();
     if (m_has_custom_datadir) {
         // Only remove the lock file, preserve the data directory.
@@ -377,7 +380,8 @@ CBlock TestChain100Setup::CreateBlock(
     Chainstate& chainstate)
 {
     BlockAssembler::Options options;
-    CBlock block = BlockAssembler{chainstate, nullptr, options}.CreateNewBlock(scriptPubKey)->block;
+    options.coinbase_output_script = scriptPubKey;
+    CBlock block = BlockAssembler{chainstate, nullptr, options}.CreateNewBlock()->block;
 
     Assert(block.vtx.size() == 1);
     for (const CMutableTransaction& tx : txns) {

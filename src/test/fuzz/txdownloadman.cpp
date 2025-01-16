@@ -18,6 +18,7 @@
 #include <test/util/txmempool.h>
 #include <util/hasher.h>
 #include <util/rbf.h>
+#include <util/time.h>
 #include <txmempool.h>
 #include <validation.h>
 #include <validationinterface.h>
@@ -165,7 +166,9 @@ void CheckPackageToValidate(const node::PackageToValidate& package_to_validate, 
 
 FUZZ_TARGET(txdownloadman, .init = initialize)
 {
+    SeedRandomStateForTest(SeedRand::ZEROS);
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
+    SetMockTime(ConsumeTime(fuzzed_data_provider));
 
     // Initialize txdownloadman
     bilingual_str error;
@@ -294,7 +297,9 @@ static void CheckInvariants(const node::TxDownloadManagerImpl& txdownload_impl, 
 
 FUZZ_TARGET(txdownloadman_impl, .init = initialize)
 {
+    SeedRandomStateForTest(SeedRand::ZEROS);
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
+    SetMockTime(ConsumeTime(fuzzed_data_provider));
 
     // Initialize a TxDownloadManagerImpl
     bilingual_str error;
