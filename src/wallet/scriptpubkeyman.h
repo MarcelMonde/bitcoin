@@ -303,6 +303,10 @@ protected:
     virtual bool AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey);
     bool AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret);
 
+    // Helper function to retrieve a conservative superset of all output scripts that may be relevant to this LegacyDataSPKM.
+    // It may include scripts that are invalid or not actually watched by this LegacyDataSPKM.
+    // Used only in migration.
+    std::unordered_set<CScript, SaltedSipHasher> GetCandidateScriptPubKeys() const;
 public:
     using ScriptPubKeyMan::ScriptPubKeyMan;
 
@@ -319,6 +323,7 @@ public:
     uint256 GetID() const override { return uint256::ONE; }
     // TODO: Remove IsMine when deleting LegacyScriptPubKeyMan
     isminetype IsMine(const CScript& script) const override;
+    bool CanProvide(const CScript& script, SignatureData& sigdata) override;
 
     // FillableSigningProvider overrides
     bool HaveKey(const CKeyID &address) const override;
@@ -488,8 +493,6 @@ public:
 
     bool CanGetAddresses(bool internal = false) const override;
 
-    bool CanProvide(const CScript& script, SignatureData& sigdata) override;
-
     bool SignTransaction(CMutableTransaction& tx, const std::map<COutPoint, Coin>& coins, int sighash, std::map<int, bilingual_str>& input_errors) const override;
     SigningResult SignMessage(const std::string& message, const PKHash& pkhash, std::string& str_sig) const override;
     std::optional<common::PSBTError> FillPSBT(PartiallySignedTransaction& psbt, const PrecomputedTransactionData& txdata, int sighash_type = SIGHASH_DEFAULT, bool sign = true, bool bip32derivs = false, int* n_signed = nullptr, bool finalize = true) const override;
@@ -613,8 +616,6 @@ private:
     mutable std::map<int32_t, FlatSigningProvider> m_map_signing_providers;
     // Fetch the SigningProvider for the given script and optionally include private keys
     std::unique_ptr<FlatSigningProvider> GetSigningProvider(const CScript& script, bool include_private = false) const;
-    // Fetch the SigningProvider for the given pubkey and always include private keys. This should only be called by signing code.
-    std::unique_ptr<FlatSigningProvider> GetSigningProvider(const CPubKey& pubkey) const;
     // Fetch the SigningProvider for a given index and optionally include private keys. Called by the above functions.
     std::unique_ptr<FlatSigningProvider> GetSigningProvider(int32_t index, bool include_private = false) const EXCLUSIVE_LOCKS_REQUIRED(cs_desc_man);
 
@@ -677,6 +678,9 @@ public:
     std::unique_ptr<SigningProvider> GetSolvingProvider(const CScript& script) const override;
 
     bool CanProvide(const CScript& script, SignatureData& sigdata) override;
+
+    // Fetch the SigningProvider for the given pubkey and always include private keys. This should only be called by signing code.
+    std::unique_ptr<FlatSigningProvider> GetSigningProvider(const CPubKey& pubkey) const;
 
     bool SignTransaction(CMutableTransaction& tx, const std::map<COutPoint, Coin>& coins, int sighash, std::map<int, bilingual_str>& input_errors) const override;
     SigningResult SignMessage(const std::string& message, const PKHash& pkhash, std::string& str_sig) const override;

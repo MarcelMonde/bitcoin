@@ -7,6 +7,7 @@
 #include <netaddress.h>
 #include <netbase.h>
 #include <test/fuzz/util/check_globals.h>
+#include <test/util/coverage.h>
 #include <test/util/random.h>
 #include <test/util/setup_common.h>
 #include <util/check.h>
@@ -79,7 +80,7 @@ void FuzzFrameworkRegisterTarget(std::string_view name, TypeTestOneInput target,
 static std::string_view g_fuzz_target;
 static const TypeTestOneInput* g_test_one_input{nullptr};
 
-inline void test_one_input(FuzzBufferType buffer)
+static void test_one_input(FuzzBufferType buffer)
 {
     CheckGlobals check{};
     (*Assert(g_test_one_input))(buffer);
@@ -89,31 +90,12 @@ const std::function<std::string()> G_TEST_GET_FULL_NAME{[]{
     return std::string{g_fuzz_target};
 }};
 
-#if defined(__clang__) && defined(__linux__)
-extern "C" void __llvm_profile_reset_counters(void) __attribute__((weak));
-extern "C" void __gcov_reset(void) __attribute__((weak));
-
-void ResetCoverageCounters()
-{
-    if (__llvm_profile_reset_counters) {
-        __llvm_profile_reset_counters();
-    }
-
-    if (__gcov_reset) {
-        __gcov_reset();
-    }
-}
-#else
-void ResetCoverageCounters() {}
-#endif
-
-
-void initialize()
+static void initialize()
 {
     // By default, make the RNG deterministic with a fixed seed. This will affect all
     // randomness during the fuzz test, except:
     // - GetStrongRandBytes(), which is used for the creation of private key material.
-    // - Creating a BasicTestingSetup or derived class will switch to a random seed.
+    // - Randomness obtained before this call in g_rng_temp_path_init
     SeedRandomStateForTest(SeedRand::ZEROS);
 
     // Set time to the genesis block timestamp for deterministic initialization.
